@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/css/styles.css">
+<title>Disk Space Over Time</title>
+<script>try { const t = localStorage.getItem('dsot-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch { /* no storage */ }</script>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><img src="/apple-touch-icon.png" alt="">Disk Space Over Time</div>
+    <div class="seg" id="range" role="group" aria-label="How far back to show">
+      <button type="button" data-days="30">Month</button>
+      <button type="button" data-days="91">3 months</button>
+      <button type="button" data-days="365">Year</button>
+      <button type="button" data-days="0">All</button>
+    </div>
+    <span class="spacer"></span>
+    <button class="btn" id="recordNow" title="Read every drive now, as today's reading">Record now</button>
+    <a class="btn" id="csv" href="/api/export.csv" title="Every reading, as a spreadsheet">Download CSV</a>
+    <select class="btn" id="theme" aria-label="Look" title="Look">
+      <option value="auto">Auto look</option>
+      <option value="light">Light look</option>
+      <option value="dark">Dark look</option>
+    </select>
+    <button class="btn" id="settingsBtn">Settings</button>
+    <button class="btn" id="helpBtn">Help</button>
+    <button class="btn" id="aboutBtn">About</button>
+    <button class="btn" id="signOut" hidden>Sign out</button>
+  </div>
+
+  <main>
+    <div class="summary" id="summary"></div>
+    <div class="grid" id="cards"><p class="muted">Loading...</p></div>
+  </main>
+  <div class="tip" id="tip" role="tooltip" hidden></div>
+
+  <dialog id="settings" aria-labelledby="settingsTitle" class="wide">
+    <button class="btn close" data-close>Close</button>
+    <h2 id="settingsTitle">Settings</h2>
+
+    <h3>Drives to check</h3>
+    <p class="muted small">Only the drives listed here are read and charted. Add the ones you want from this machine or from a NAS over SSH, and remove any you don't.</p>
+    <p class="muted small" id="fromStart" hidden>This list started from your .env file (or the drives mounted in docker-compose.yml). Adding, renaming or removing one here saves the list in the app, and from then on that is the list used.</p>
+    <div id="driveList"></div>
+
+    <div class="row">
+      <button class="btn" id="addFolderBtn" type="button" aria-expanded="false">Add a drive on this machine</button>
+      <button class="btn" id="addSshBtn" type="button" aria-expanded="false">Add a drive over SSH</button>
+    </div>
+    <div class="form" id="folderForm" hidden>
+      <p class="small muted">Drives the app can see: the folders mounted under <code id="drivesRoot">/drives</code> in docker-compose.yml.</p>
+      <div id="folderPick"></div>
+    </div>
+    <div class="form" id="sshForm" hidden>
+      <p class="small muted">A NAS or another computer with SSH turned on. It needs the line from <b>SSH key</b> below in its <code>authorized_keys</code> first.</p>
+      <label>Address <input id="sAddress" placeholder="such as 192.168.1.20" autocomplete="off"></label>
+      <label>Port <input id="sPort" inputmode="numeric" placeholder="22"></label>
+      <label>User <input id="sUser" placeholder="such as admin" autocomplete="off"></label>
+      <div class="row">
+        <button class="btn primary" id="sLook" type="button">Show its drives</button>
+        <span id="sResult" class="small" role="status"></span>
+      </div>
+      <div id="sshPick"></div>
+    </div>
+
+    <h3>SSH key</h3>
+    <div id="keyBox"></div>
+    <details id="pasteKey">
+      <summary class="btn">Use my own key</summary>
+      <div class="form">
+        <label>Private key <textarea id="kPrivate" rows="6" spellcheck="false" autocomplete="off" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"></textarea></label>
+        <label>Passphrase, if it has one <input id="kPass" type="password" autocomplete="off"></label>
+        <p class="muted small">It's stored encrypted in the app's data folder and is never shown again or sent back to the browser.</p>
+        <div class="row"><button class="btn primary" id="kSave" type="button">Save key</button><span id="kResult" class="small" role="status"></span></div>
+      </div>
+    </details>
+  </dialog>
+
+  <dialog id="help" aria-labelledby="helpTitle">
+    <button class="btn close" data-close>Close</button>
+    <h2 id="helpTitle">Help</h2>
+    <p>Disk Space Over Time reads how full each of your drives is once a day and keeps every reading, so you can see a drive filling up long before it runs out. It only reads sizes: it never opens, changes or deletes a file.</p>
+    <h3>Reading the page</h3>
+    <ul>
+      <li>Each drive has a card with its free space now, a bar for how full it is, and a chart of the space used over time. The dashed line across the top is the size of the drive.</li>
+      <li><b>Last 30 days</b> is how much more (or less) space is used than 30 days ago.</li>
+      <li><b>Full in about</b> is when the drive will be full if it keeps filling at the rate of the last <span class="trendDays">90</span> days. The dashed line on the right of the chart carries that rate on. A drive needs a week of readings before this is worked out, and one that has barely changed shows as <b>Not filling up</b>.</li>
+      <li>A card is marked <b>Low on space</b> when under <span class="lowPercent">10</span>% is free, and <b>Filling up</b> when it will be full within <span class="soonDays">90</span> days.</li>
+      <li>Hover over (or tap) a chart to see the day's reading. <b>Month</b>, <b>3 months</b>, <b>Year</b> and <b>All</b> at the top pick how far back the charts go.</li>
+      <li><b>Readings</b> under a chart lists them as a table, and <b>Download CSV</b> gives every reading of every drive as a spreadsheet.</li>
+    </ul>
+    <h3>When readings are made</h3>
+    <p>Every day at <span class="recordTime">03:00</span>, and the first time the app runs. If the computer was off or asleep then, the day's reading is made as soon as it's back. A drive that can't be read (an unplugged drive or a sleeping NAS) is tried again every 30 minutes that day; nothing is recorded for it until it answers, so a gap never looks like an empty drive. <b>Record now</b> reads every drive at once and replaces today's reading.</p>
+    <h3>Choosing the drives to check</h3>
+    <p>Open <b>Settings</b>: only the drives under <b>Drives to check</b> are read. <b>Add a drive on this machine</b> lists the drives mounted into the app in docker-compose.yml (if any). <b>Add a drive over SSH</b> reads a NAS or another computer: press <b>Make a key</b> under SSH key, add the line it shows to <code>~/.ssh/authorized_keys</code> for that user on the other machine (the line only lets the key run <code>df</code>, which lists drive sizes), then fill in the address and press <b>Show its drives</b>. <b>Rename</b> and <b>Remove</b> change the list; a removed drive's readings are kept, and come back if you add it again.</p>
+  </dialog>
+
+  <dialog id="about" aria-labelledby="aboutTitle" class="about">
+    <img src="/apple-touch-icon.png" alt="">
+    <h2 id="aboutTitle">Disk Space Over Time</h2>
+    <p id="aboutVersion" class="muted"></p>
+    <p>Records the free space on your NAS or PC drives every day and charts it, so you can see when a drive is filling up.</p>
+    <p class="muted">Copyright (c) 2026 Jason Rhodes. MIT licence.<br>Created by Jason Rhodes, built with Claude (Anthropic).</p>
+    <p><a href="https://github.com/jason4bury/Disk-Space-Over-Time" target="_blank" rel="noopener">GitHub page</a></p>
+    <button class="btn" data-close>Close</button>
+  </dialog>
+
+<script src="/js/app.js"></script>
+<script src="/js/settings.js"></script>
+</body>
+</html>

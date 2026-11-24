@@ -1,0 +1,36 @@
+# Disk Space Over Time
+# 1. Copy .env.example to .env next to this file and fill in the sign-in settings.
+# 2. Run: docker compose up -d   then open http://<your-server>:3060
+# 3. Pick the drives to check in Settings on the page: drives on a NAS or another computer over
+#    SSH, and any drives of this machine you mount below (remove the # from their lines first).
+#    You don't have to mount any: a NAS-only setup needs none of these lines.
+services:
+
+  disk-space-over-time:
+    image: jason4bury/disk-space-over-time:latest
+    container_name: disk-space-over-time
+    # App settings (sign-in, time zone, when to record) come from .env.
+    env_file:
+      - .env
+    # Fixed container-side values. These override anything with the same name in .env.
+    environment:
+      PORT: 3060
+      DATA_DIR: /data
+      DRIVES_ROOT: /drives
+    volumes:
+      # The readings, the drives and the SSH key, in a Docker volume. To keep them in a folder
+      # instead, replace disk-space-over-time-data with a path such as D:/Docker/disk-space-over-time.
+      - disk-space-over-time-data:/data
+      # Optional: drives on this machine, one line each, read-only. The app only reads each drive's
+      # size and free space, never its files. Mounting one lets you pick it in Settings.
+      #   Windows (Docker Desktop):  - C:/:/drives/C:ro
+      #   Linux:                     - /:/drives/System:ro
+      #   Synology NAS:              - /volume1:/drives/volume1:ro
+      # - /path/to/drive:/drives/Drive1:ro
+    ports:
+      # Change the first number to use a different port on the host.
+      - "3060:3060"
+    restart: unless-stopped
+
+volumes:
+  disk-space-over-time-data:
