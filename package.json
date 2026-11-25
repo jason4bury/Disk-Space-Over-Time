@@ -2,7 +2,7 @@
   "name": "disk-space-over-time",
   "displayName": "Disk Space Over Time",
   "version": "1.0.0",
-  "description": "Node.js/web tool that records the free space on your NAS or PC drives every day and charts it, so you can see when a drive is filling up, self-hosted in Docker",
+  "description": "Node.js/web tool for recording the free space on your NAS or PC drives every day and charting it, so you can see when a drive is filling up, self-hosted in Docker",
   "copyright": "Copyright (c) 2026 Jason Rhodes",
   "author": "Jason Rhodes",
   "license": "MIT",
